@@ -9,7 +9,7 @@ var Probe LiveNessProbe
 
 func init() {
 	Probe = LiveNessProbe{
-		Config: GetConfig(),
+		Config: GetLiveNessConfig(),
 		ApiMap: make(map[string]LoginType),
 	}
 	go Probe.Start()
