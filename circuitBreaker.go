@@ -3,7 +3,21 @@ package circuitbreaker
 var CB CircuitBreaker
 
 func init() {
-	//Todo: add config
+	lb := LoadBalance{
+		zfLB:    &randomLB{},
+		oauthLB: &randomLB{},
+	}
+	for _, config := range GetLoadBalanceConfig() {
+		if config.Type == Oauth {
+			lb.oauthLB.Add(config.Url)
+		} else if config.Type == ZF {
+			lb.zfLB.Add(config.Url)
+		}
+	}
+	CB = CircuitBreaker{
+		lb:       lb,
+		SnapShot: make(map[string]*apiSnapShot),
+	}
 }
 
 type CircuitBreaker struct {

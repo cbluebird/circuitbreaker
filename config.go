@@ -31,9 +31,9 @@ func GetLiveNessConfig() LiveNessProbeConfig {
 }
 
 type LoadBalanceConfig struct {
-	Name string
-	Url  string
-	Type LoginType
+	Name string    `json:"name"`
+	Url  string    `json:"url"`
+	Type LoginType `json:"type"`
 }
 
 func GetLoadBalanceConfig() []LoadBalanceConfig {
