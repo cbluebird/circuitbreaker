@@ -7,8 +7,7 @@ import (
 type LoadBalanceType int
 
 const (
-	RoundRobin LoadBalanceType = iota
-	Random
+	Random LoadBalanceType = iota
 )
 
 type LoadBalance struct {
@@ -32,18 +31,11 @@ func (lb *LoadBalance) Pick(zfFlag, oauthFlag bool) (string, LoginType) {
 	} else {
 		return "", Unknown
 	}
-	if loginType == Oauth {
-		return lb.zfLB.Pick(), loginType
-	}
-	return lb.oauthLB.Pick(), loginType
-}
 
-func (lb *LoadBalance) Remove(api string, loginType LoginType) {
 	if loginType == Oauth {
-		lb.oauthLB.Remove(api)
-	} else {
-		lb.zfLB.Remove(api)
+		return lb.oauthLB.Pick(), loginType
 	}
+	return lb.zfLB.Pick(), loginType
 }
 
 func (lb *LoadBalance) Add(api string, loginType LoginType) {
@@ -54,10 +46,19 @@ func (lb *LoadBalance) Add(api string, loginType LoginType) {
 	}
 }
 
+func (lb *LoadBalance) Remove(api string, loginType LoginType) {
+	if loginType == Oauth {
+		lb.oauthLB.Remove(api)
+	} else {
+		lb.zfLB.Remove(api)
+	}
+}
+
 type loadBalance interface {
 	LoadBalance() LoadBalanceType
 	Pick() (api string)
 	ReBalance(apis []string)
+	Add(api ...string)
 	Remove(api string)
 }
 
@@ -95,4 +96,5 @@ func (b *randomLB) Remove(api string) {
 			break
 		}
 	}
+	b.Size = len(b.Api)
 }

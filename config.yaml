@@ -1,13 +1,7 @@
-circuitbreaker:
-  enabled: true
-  liveNess:
-    studentId: 12345678
-    oauthPassword: password
-    zfPassword: password
-    duration: 10000
-    resetTimeout: 10000
-  api:
-    - URL: http://localhost:8080/api
-      type: ZF
-    - URL: http://localhost:8081/api
-      type: OAUTH
+zfCircuit:
+  studentId:
+  oauthPassword:
+  zfPassword:
+  duration:
+  apis:
+    -

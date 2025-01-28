@@ -1,42 +1,47 @@
 package circuitbreaker
 
+import (
+	cbConfig "github.com/cbluebird/circuitbreaker/config"
+)
+
 var CB CircuitBreaker
+
+type CircuitBreaker struct {
+	LB       LoadBalance
+	SnapShot map[string]*ApiSnapShot
+}
 
 func init() {
 	lb := LoadBalance{
 		zfLB:    &randomLB{},
 		oauthLB: &randomLB{},
 	}
-	for _, config := range GetLoadBalanceConfig() {
-		if config.Type == Oauth {
-			lb.oauthLB.Add(config.Url)
-		} else if config.Type == ZF {
-			lb.zfLB.Add(config.Url)
-		}
-	}
-	CB = CircuitBreaker{
-		lb:       lb,
-		SnapShot: make(map[string]*apiSnapShot),
-	}
-}
+	snapShot := make(map[string]*ApiSnapShot)
 
-type CircuitBreaker struct {
-	lb       LoadBalance
-	SnapShot map[string]*apiSnapShot
+	for _, api := range cbConfig.GetLoadBalanceConfig().Apis {
+		lb.Add(api, Oauth)
+		lb.Add(api, ZF)
+		snapShot[api+string(Oauth)] = NewApiSnapShot()
+		snapShot[api+string(ZF)] = NewApiSnapShot()
+	}
+
+	CB = CircuitBreaker{
+		LB:       lb,
+		SnapShot: snapShot,
+	}
 }
 
 func (c *CircuitBreaker) GetApi(zfFlag, oauthFlag bool) (string, LoginType) {
-	return c.lb.Pick(zfFlag, oauthFlag)
+	return c.LB.Pick(zfFlag, oauthFlag)
 }
 
-func (c *CircuitBreaker) Fail(api string) {
-	if c.SnapShot[api].Fail() {
-		c.lb.Remove(api, c.SnapShot[api].LoginType)
-		Probe.Add(api, c.SnapShot[api].LoginType)
+func (c *CircuitBreaker) Fail(api string, loginType LoginType) {
+	if c.SnapShot[api+string(loginType)].Fail() {
+		c.LB.Remove(api, loginType)
+		Probe.Add(api, loginType)
 	}
 }
 
-func (c *CircuitBreaker) Success(api string) {
-	c.lb.Add(api, c.SnapShot[api].LoginType)
-	c.SnapShot[api].Success()
+func (c *CircuitBreaker) Success(api string, loginType LoginType) {
+	c.SnapShot[api+string(loginType)].Success()
 }
