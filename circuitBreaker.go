@@ -32,7 +32,7 @@ func init() {
 	}
 }
 
-func (c *CircuitBreaker) GetApi(zfFlag, oauthFlag bool) (string, LoginType) {
+func (c *CircuitBreaker) GetApi(zfFlag, oauthFlag bool) (string, LoginType, error) {
 	return c.LB.Pick(zfFlag, oauthFlag)
 }
 

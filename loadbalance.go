@@ -1,9 +1,9 @@
 package circuitbreaker
 
 import (
-	"sync"
-
+	"errors"
 	"github.com/bytedance/gopkg/lang/fastrand"
+	"sync"
 )
 
 type LoadBalanceType int
@@ -17,34 +17,25 @@ type LoadBalance struct {
 	oauthLB *randomLB
 }
 
-func (lb *LoadBalance) Pick(zfFlag, oauthFlag bool) (string, LoginType) {
-	var loginType LoginType
+func (lb *LoadBalance) Pick(zfFlag, oauthFlag bool) (string, LoginType, error) {
+	oauthAvailable := oauthFlag && lb.oauthLB.isAvailable()
+	zfAvailable := zfFlag && lb.zfLB.isAvailable()
 
-	if zfFlag {
-		zfFlag = lb.zfLB.Len() > 0
-	}
-	if oauthFlag {
-		oauthFlag = lb.oauthLB.Len() > 0
-	}
-
-	if oauthFlag && zfFlag {
+	if oauthAvailable && zfAvailable {
 		if fastrand.Intn(100) > 50 {
-			loginType = Oauth
-		} else {
-			loginType = ZF
+			return lb.oauthLB.Pick(), Oauth, nil
 		}
-	} else if oauthFlag {
-		loginType = Oauth
-	} else if zfFlag {
-		loginType = ZF
-	} else {
-		return "", Unknown
+		return lb.zfLB.Pick(), ZF, nil
 	}
 
-	if loginType == Oauth {
-		return lb.oauthLB.Pick(), loginType
+	if oauthAvailable {
+		return lb.oauthLB.Pick(), Oauth, nil
 	}
-	return lb.zfLB.Pick(), loginType
+	if zfAvailable {
+		return lb.zfLB.Pick(), ZF, nil
+	}
+
+	return "", Unknown, errors.New("no api available")
 }
 
 func (lb *LoadBalance) Add(api string, loginType LoginType) {
@@ -69,6 +60,7 @@ type loadBalance interface {
 	ReBalance(apis []string)
 	Add(api ...string)
 	Remove(api string)
+	isAvailable() bool
 }
 
 type randomLB struct {
@@ -88,6 +80,9 @@ func (b *randomLB) LoadBalance() LoadBalanceType {
 func (b *randomLB) Pick() string {
 	b.Lock()
 	defer b.Unlock()
+	if b.Size == 0 {
+		return ""
+	}
 	idx := fastrand.Intn(b.Size)
 	return b.Api[idx]
 }
@@ -117,8 +112,8 @@ func (b *randomLB) Remove(api string) {
 	b.Size = len(b.Api)
 }
 
-func (b *randomLB) Len() int {
+func (b *randomLB) isAvailable() bool {
 	b.Lock()
 	defer b.Unlock()
-	return b.Size
+	return b.Size != 0
 }
